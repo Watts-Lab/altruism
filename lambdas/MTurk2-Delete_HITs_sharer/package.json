@@ -1,0 +1,17 @@
+{
+  "name": "mturk2-delete_hits_sharer",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.451.0",
+    "@aws-sdk/client-mturk": "^3.451.0",
+    "aws-xray-sdk": "^3.5.3"
+  }
+}
