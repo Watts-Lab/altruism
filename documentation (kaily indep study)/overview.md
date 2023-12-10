@@ -28,5 +28,5 @@ First, I investigated how to build the participant experience so that it produce
 * **Week 15:** Finalizing workflow between MTurk and iFrame component. Documenting pipelines.
 
 #### Solution
-* Overview: https://github.com/kailyl/altruism-docs/blob/main/methods.md
-* Design Document: https://github.com/kailyl/altruism-docs/blob/main/design-doc.md
+* [Overview](https://github.com/Watts-Lab/altruism/blob/main/documentation%20(kaily%20indep%20study)/methods.md)
+* [Design Document](https://github.com/Watts-Lab/altruism/blob/main/documentation%20(kaily%20indep%20study)/design-doc.md)
