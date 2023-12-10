@@ -1,8 +1,9 @@
-import { ACCESS_ID, SECRET_KEY } from "../credentials.js";
+import { ACCESS_ID, SECRET_KEY, DDB_ACCESS_ID, DDB_SECRET_KEY } from "../credentials.js";
 import { MTurkClient, 
   CreateHITCommand,
   CreateQualificationTypeCommand, 
-  AssociateQualificationWithWorkerCommand
+  AssociateQualificationWithWorkerCommand,
+  UpdateNotificationSettingsCommand
 } from "@aws-sdk/client-mturk";
 import { DynamoDBClient, 
   GetItemCommand, 
@@ -12,6 +13,9 @@ import { DynamoDBClient,
 const region = "us-east-1";
 const aws_access_key_id = ACCESS_ID;
 const aws_secret_access_key = SECRET_KEY;
+
+const ddb_aws_access_key_id = DDB_ACCESS_ID;
+const ddb_aws_secret_access_key = DDB_SECRET_KEY;
 
 const sandbox = true; // TRUE FOR SANDBOX - FALSE FOR PROD
 const mturkClient = new MTurkClient({
@@ -28,8 +32,8 @@ const mturkClient = new MTurkClient({
 const dynamoDBClient = new DynamoDBClient({
   region,
   credentials: {
-    accessKeyId: aws_access_key_id,
-    secretAccessKey: aws_secret_access_key,
+    accessKeyId: ddb_aws_access_key_id,
+    secretAccessKey: ddb_aws_secret_access_key,
   },
 });
 
@@ -52,6 +56,7 @@ async function createAndAssignCustomQualification(workerId) {
     };
     
     await mturkClient.send(new AssociateQualificationWithWorkerCommand(assignQualificationParams));
+    
     return qualificationTypeId;
   } catch (error) {
     throw new Error("Error creating/assigning custom qualification: " + error);
@@ -60,7 +65,7 @@ async function createAndAssignCustomQualification(workerId) {
 
 async function updateDynamoDB(workerID, activeHITs) {
   const getItemParams = {
-    TableName: "worker_info",
+    TableName: "altruism_worker_info",
     Key: {
       workerID: { S: workerID },
     },
@@ -72,7 +77,7 @@ async function updateDynamoDB(workerID, activeHITs) {
     const updatedHITs = existingHITs.concat(activeHITs);
 
     const putItemParams = {
-      TableName: "worker_info",
+      TableName: "altruism_worker_info",
       Item: {
         workerID: { S: workerID },
         HITs: { L: updatedHITs },
@@ -81,7 +86,7 @@ async function updateDynamoDB(workerID, activeHITs) {
     await dynamoDBClient.send(new PutItemCommand(putItemParams));
 
     const putItemParams2 = {
-      TableName: "sharers",
+      TableName: "altruism_sharers",
       Item: {
         workerID: { S: workerID },
       },
@@ -91,6 +96,24 @@ async function updateDynamoDB(workerID, activeHITs) {
     console.log(`Updated DynamoDB for Worker ID ${workerID}.`);
   } catch (error) {
     console.error("Error:", error);
+  }
+}
+
+async function updateNotificationSettings(HITId) {
+  try {
+    const notificationParams = {
+      HITTypeId: HITId, 
+      Notification: {
+        Destination: "arn:aws:sns:us-east-1:451348143162:MTurk2-Delete_HITs_sharer",
+        Transport: "SNS",
+        Version: "2014-08-15",
+        EventTypes: ["AssignmentSubmitted"],
+      },
+      Active: true,
+    };
+    await mturkClient.send(new UpdateNotificationSettingsCommand(notificationParams));
+  } catch (error) {
+    console.error("Error: ", error);
   }
 }
 
@@ -127,6 +150,7 @@ async function createHITs(workerIDs) {
       try {
         const data = await mturkClient.send(new CreateHITCommand(HIT));
         activeHITs.push({ S: data.HIT.HITId })
+        await updateNotificationSettings(data.HIT.HITTypeId)
         let hitURL = `https://${sandbox ? "workersandbox" : "worker"}.mturk.com/projects/${data.HIT.HITTypeId}/tasks`;
         console.log("\nA task was created at:", hitURL);
       } catch (err) {

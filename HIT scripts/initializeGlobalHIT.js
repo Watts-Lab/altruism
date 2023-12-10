@@ -32,7 +32,7 @@ const hitParams = {
 const notificationParams = {
     HITTypeId: "", 
     Notification: {
-      Destination: "arn:aws:sns:us-east-1:451348143162:MTurk",
+      Destination: "arn:aws:sns:us-east-1:088838630371:altruism_createHITs",
       Transport: "SNS",
       Version: "2014-08-15",
       EventTypes: ["AssignmentSubmitted"],

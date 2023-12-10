@@ -1,3 +1,4 @@
+import { ACCESS_ID, SECRET_KEY } from "../../credentials.js";
 const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 const { parseString } = require('xml2js');
 const {
@@ -16,6 +17,10 @@ const mturkClient = new MTurkClient({
   endpoint: sandbox
     ? `https://mturk-requester-sandbox.${region}.amazonaws.com`
     : `https://mturk-requester.${region}.amazonaws.com`,
+  credentials: { 
+    accessKeyId: ACCESS_ID, 
+    secretAccessKey: SECRET_KEY
+  } 
 });
 
 const dynamoDBClient = new DynamoDBClient({ 
@@ -34,7 +39,7 @@ let shareCodeEntered;
 
 async function getSharerAndTreatment(shareCode) {
   const params = {
-    TableName: 'sharing_data',
+    TableName: 'altruism_sharing_data',
     Key: {
       "shareID": { S: shareCode },
     },
@@ -57,7 +62,7 @@ async function getSharerAndTreatment(shareCode) {
 
 async function mapWorkers(receiverWorkerID, sharerWorkerID, treatment) {
   const params = {
-    TableName: 'worker_relationships',
+    TableName: 'altruism_worker_relationships',
     Key: {
       "receiverWorkerID": { S: receiverWorkerID },
     },
@@ -70,7 +75,7 @@ async function mapWorkers(receiverWorkerID, sharerWorkerID, treatment) {
       throw "Worker is already matched with a sharer";
     } else {
       const putParams = {
-        TableName: 'worker_relationships',
+        TableName: 'altruism_worker_relationships',
         Item: {
           'receiverWorkerID': { S: receiverWorkerID },
           'sharerWorkerID': { S: sharerWorkerID },
@@ -166,7 +171,7 @@ async function createHIT() {
     
 async function updateDynamoDB() {
   const getItemParams = {
-    TableName: "worker_info",
+    TableName: "altruism_worker_info",
     Key: {
       workerID: { S: workerIdNotif },
     },
@@ -178,7 +183,7 @@ async function updateDynamoDB() {
     const updatedHITs = existingHITs.concat(activeHITs);
         
     const putItemParams = {
-      TableName: "worker_info",
+      TableName: "altruism_worker_info",
       Item: {
         workerID: { S: workerIdNotif },
         HITs: { L: updatedHITs },
@@ -203,7 +208,7 @@ async function createHITsWithQualification(workerId) {
     const notificationParams = {
       HITTypeId: hitData.HIT.HITTypeId, 
       Notification: {
-        Destination: "arn:aws:sns:us-east-1:451348143162:MTurk2-Delete_HITs",
+        Destination: "arn:aws:sns:us-east-1:088838630371:altruism_deleteHITs",
         Transport: "SNS",
         Version: "2014-08-15",
         EventTypes: ["AssignmentSubmitted"],
