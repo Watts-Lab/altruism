@@ -23,6 +23,7 @@ Messages that are triggered when a worker submits a HIT. Call lambda functions (
 
 #### API Gateway
 Calls triggered when a worker accepts a HIT. Calls lambda functions (above) with the matching name. 
+
 <img width="220" alt="288864333-c08a1b36-00a5-4306-ae3c-0383f3d7f9b8" src="https://github.com/Watts-Lab/altruism/assets/59887357/0745c3df-c557-493f-8149-f6f29f0cdccf">
 
 ### Database Schema 
