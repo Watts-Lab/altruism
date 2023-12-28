@@ -2,6 +2,19 @@ provider "aws" {
   region = "us-east-1"
 }
 
+# Initializing AWS credentials for MTurk Account
+variable "aws_access_key_id" {
+  description = "AWS Access Key ID"
+}
+variable "aws_secret_access_key" {
+  description = "AWS Secret Access Key"
+}
+
+# Initializing list of workers for sharers 
+variable "sharer_ids" {
+  description = "Worker IDs for sharers"
+}
+
 # Creating DynamoDB tables for sharing workflow
 
 # Table of workers who are sharers 
@@ -273,4 +286,30 @@ resource "aws_api_gateway_deployment" "initialize_treatments" {
 
 output "api_gateway_url" {
   value = aws_api_gateway_deployment.initialize_treatments.invoke_url
+}
+
+# Running script to make global HIT 
+resource "null_resource" "initialize_global_HIT" {
+  provisioner "local-exec" {
+    command = "node initializeGlobalHIT.js"
+    environment = {
+      AWS_ACCESS_KEY_ID     = var.aws_access_key_id,
+      AWS_SECRET_ACCESS_KEY = var.aws_secret_access_key,
+      SNS_DESTINATION       = aws_sns_topic.delete_HITs_topic.arn,
+    }
+  }
+  depends_on = [aws_lambda_function.delete_HITs, aws_sns_topic.delete_HITs_topic]
+}
+
+# Running script to make sharer HITs
+resource "null_resource" "initialize_sharer_HITs" {
+  provisioner "local-exec" {
+    command = "node initializeSharerHITs.js '${jsonencode(var.sharer_ids)}'"
+    environment = {
+      AWS_ACCESS_KEY_ID     = var.aws_access_key_id,
+      AWS_SECRET_ACCESS_KEY = var.aws_secret_access_key,
+      SNS_DESTINATION       = aws_sns_topic.delete_HITs_sharer_topic.arn,
+    }
+  }
+  depends_on = [aws_lambda_function.delete_HITs_sharer, aws_sns_topic.delete_HITs_sharer_topic]
 }
