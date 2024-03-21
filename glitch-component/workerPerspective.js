@@ -1,10 +1,10 @@
-const fetch = require('node-fetch');
-const express = require("express");
+import fetch from 'node-fetch';
+import express from "express";
+import AWS from "aws-sdk";
 
 const app = express();
 const apiUrl = 'https://mck3p05gv0.execute-api.us-east-1.amazonaws.com/cost-treatment';
 
-const AWS = require("aws-sdk");
 const region = "us-east-1";
 const aws_access_key_id = process.env.YOUR_ACCESS_ID;
 const aws_secret_access_key = process.env.YOUR_SECRET_KEY;
@@ -16,11 +16,14 @@ AWS.config = {
   sslEnabled: "true",
 };
 
-
 var db = new AWS.DynamoDB();
 
 app.use(express.static("public"));
-const listener = app.listen(process.env.PORT);
+
+const listener = app.listen(process.env.PORT, () => {
+  console.log(`Server is running on port ${listener.address().port}`);
+});
+
 const css = `<head><style type="text/css">
 body {
   font: 400 16px / 1.5 system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
