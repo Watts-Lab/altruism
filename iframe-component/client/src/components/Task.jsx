@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import DemographicSurvey from '../tasks/DemographicsSurvey';
 import ExampleSurvey from '../tasks/ExampleSurvey';
 

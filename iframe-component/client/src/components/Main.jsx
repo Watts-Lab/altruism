@@ -76,7 +76,7 @@ const Main = ({ workerID }) => {
             <p> Submitted! </p>
         </div>
         : 
-        <div style={{ textAlign: 'center', margin: '20px', textAlign: 'left' }}>
+        <div style={{ margin: '20px', textAlign: 'left' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '20px' }}>
                 <p style={{ color: '#555' }}>Worker ID: {workerID}</p>
                 <p style={{ color: '#555' }}>{task}</p>
