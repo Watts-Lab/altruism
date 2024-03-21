@@ -1,0 +1,30 @@
+version: '3'
+
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile # Assuming the Dockerfile is named 'Dockerfile'
+    volumes:
+      - ./server:/app/server
+    ports:
+      - "3001:3001"
+    environment:
+      - PORT=3001
+    command: ["node", "server.js"]
+
+  client:
+    build:
+      context: ./src
+      dockerfile: Dockerfile # Assuming the Dockerfile is named 'Dockerfile'
+    volumes:
+      - ./client:/app/client
+    ports:
+      - "3000:3000"
+    environment:
+      - PORT=3000
+    command: ["npm", "start"]
+
+networks:
+  default:
+    driver: bridge
