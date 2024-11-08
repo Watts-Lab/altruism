@@ -1,4 +1,6 @@
-import { ACCESS_ID, SECRET_KEY } from "../../credentials.js";
+/*import { ACCESS_ID, SECRET_KEY } from "../../credentials.js";*/
+import("../../credentials.js").then(({ ACCESS_ID, SECRET_KEY }) => {
+
 const { DynamoDBClient, GetItemCommand, PutItemCommand } = require('@aws-sdk/client-dynamodb');
 const { parseString } = require('xml2js');
 const {
@@ -11,7 +13,7 @@ const {
 
 const region = "us-east-1";
 
-const sandbox = true; // TRUE FOR SANDBOX - FALSE FOR PROD
+/*const sandbox = true; // TRUE FOR SANDBOX - FALSE FOR PROD
 const mturkClient = new MTurkClient({
   region,
   endpoint: sandbox
@@ -28,7 +30,97 @@ const dynamoDBClient = new DynamoDBClient({
 });
 
 let qualificationTypeId;
-const numberOfHITs = 10;
+const numberOfHITs = 10;*/
+
+const stimuli = [
+  { type: "text", content: "Sample text 1", prompt: "Rate this text from 1 to 5" },
+  { type: "text", content: "Sample text 2", prompt: "Rate this text from 1 to 5" },
+  { type: "text", content: "Sample text 3", prompt: "Rate this text from 1 to 5" },
+  { type: "image", content: "https://www.google.com/image1", prompt: "Rate this image from 1 to 5" },
+];
+
+function getRandomStimulus() {
+  return stimuli[Math.floor(Math.random() * stimuli.length)];
+}
+
+const rewardPerTask = 0.20;
+// Define treatment configurations
+const treatments = {
+  control: {
+    numberOfHITs: 10, 
+    sandbox: true,
+    cost: 0, 
+    visibility: "anonymous", 
+    timeCost: 10,
+    altruism_cost: 0,
+    reward: rewardPerTask
+  },
+  treatmentA: {
+    numberOfHITs: 15, 
+    sandbox: false,
+    cost: 5, 
+    visibility: "public", 
+    timeCost: 20,
+    altruism_cost: 0.3,
+    reward: rewardPerTask
+  },
+  treatmentB: {
+    numberOfHITs: 20, 
+    sandbox: false,
+    cost: 10, 
+    visibility: "anonymous", 
+    timeCost: 30,
+    altruism_cost: 0.5,
+    reward: rewardPerTask
+  }
+};
+// how long does all task last (sub-tasks)
+// altruism cost (0-1)
+// reward per hit
+
+function selectTreatment(workerID) {
+  const treatmentNames = Object.keys(treatments);
+  return treatments[treatmentNames[Math.floor(Math.random() * treatmentNames.length)]];
+}
+
+const selectedTreatment = selectTreatment(workerIdNotif);
+const { altruism_cost } = selectedTreatment;
+
+// Initialize MTurkClient with treatment configuration
+const mturkClient = new MTurkClient({
+  region,
+  endpoint: selectedTreatment.sandbox
+    ? `https://mturk-requester-sandbox.${region}.amazonaws.com`
+    : `https://mturk-requester.${region}.amazonaws.com`,
+  credentials: { 
+    accessKeyId: ACCESS_ID, 
+    secretAccessKey: SECRET_KEY
+  }
+});
+
+const dynamoDBClient = new DynamoDBClient({ 
+  region, 
+});
+
+const taskLibrary = [
+  "Task1", "Task2", "Task3", 
+  "Task4", "Task5"
+];
+
+
+
+// Use treatment's number of HITs
+const numberOfHITs = selectedTreatment.numberOfHITs;
+const hitReward = selectedTreatment.cost;
+const hitTime = selectedTreatment.timeCost;
+const hitVisibility = selectedTreatment.visibility;
+
+
+}).catch(err => {
+  console.error("Failed to load credentials:", err);
+});
+
+
 const activeHITs = [];
 let hitData;
 
@@ -135,24 +227,70 @@ async function createAndAssignCustomQualification(workerId) {
     throw new Error("Error creating/assigning custom qualification: " + error);
   }
 }
+
+async function assignDemographicSurvey(workerId) {
+    const surveyTask = "DemographicSurvey"; 
+
+    const params = {
+        TableName: "worker_info",
+        Key: { "workerID": { S: workerId } }
+    };
+
+    try {
+        const command = new GetItemCommand(params);
+        const response = await dynamoDBClient.send(command);
+
+        if (!response.Item || !response.Item.surveyCompleted) {
+            await createHIT(workerId, surveyTask);
+            
+            const updateParams = {
+                TableName: "worker_info",
+                Item: {
+                    "workerID": { S: workerId },
+                    "surveyCompleted": { BOOL: true }
+                }
+            };
+            const putCommand = new PutItemCommand(updateParams);
+            await dynamoDBClient.send(putCommand);
+
+            console.log(`Assigned demographic survey to worker ${workerId}`);
+        } else {
+            assignRandomTasks(workerId);
+        }
+    } catch (error) {
+        console.error("Error assigning demographic survey:", error);
+    }
+}
+
+async function assignRandomTasks(workerId) {
+  const shuffledTasks = taskLibrary.sort(() => 0.5 - Math.random());
+  const maxTasks = Math.floor(shuffledTasks.length * (1 - altruism_cost));
+
+  for (let i = 0; i < maxTasks; i++) {
+    const task = shuffledTasks[i];
+    await createHIT(workerId, task);
+    console.log(`Assigned task ${task} to worker ${workerId}`);
+  }
+}
       
 async function createHIT() {
+  const stimulus = getRandomStimulus();
   const createHITParams = {
-    Title: `HITs for ${workerIdNotif}`,
-    Description: `HITs for ${workerIdNotif} -- Receiver`,
+    Title: `Task: ${task} for ${workerIdNotif} - Earn $${selectedTreatment.reward} `,
+    Description: `Task ${task} assigned to ${workerIdNotif} for $${selectedTreatment.reward} -- ${selectedTreatment.visibility}`,
     QualificationRequirements: [
     {
       QualificationTypeId: qualificationTypeId,
       Comparator: "Exists",
     }],
-    AssignmentDurationInSeconds: 60 * 10, // TO-DO: CHANGE PARAMETERS
+    AssignmentDurationInSeconds: 60 * selectedTreatment.timeCost,
     LifetimeInSeconds: 60 * 20,
-    Reward: "0.01",
+    Reward: `${selectedTreatment.reward}`,
     Keywords: "question, answer, research, etc",
     MaxAssignments: 1,
     Question: `
     <ExternalQuestion xmlns="http://mechanicalturk.amazonaws.com/AWSMechanicalTurkDataSchemas/2006-07-14/ExternalQuestion.xsd">
-      <ExternalURL>https://altruism-receiver-perspective.glitch.me/</ExternalURL>
+      <ExternalURL>https://example.com/task/${task}</ExternalURL>
       <FrameHeight>400</FrameHeight>
     </ExternalQuestion>
     `,
@@ -187,6 +325,8 @@ async function updateDynamoDB() {
       Item: {
         workerID: { S: workerIdNotif },
         HITs: { L: updatedHITs },
+        cost: { N: `${selectedTreatment.cost}` }, 
+        visibility: { S: selectedTreatment.visibility } 
       },
     };
       
@@ -221,6 +361,14 @@ async function createHITsWithQualification(workerId) {
   }
 }
 
+function displayAltruismCost() {
+  if (selectedTreatment.visibility === "public") {
+    console.log(`Altruism Cost for this task: ${altruism_cost * 100}%`);
+  } else {
+    console.log("Altruism Cost is hidden for this task.");
+  }
+}
+
 exports.handler = async (event, context) => {
   await new Promise(resolve => setTimeout(resolve, 5000)); // 5 second wait to account for HIT status
   for (const record of event.Records) {
@@ -238,6 +386,8 @@ exports.handler = async (event, context) => {
     });
 
     try {
+      displayAltruismCost();
+      await assignDemographicSurvey(workerId);
       await mapReceiverToSharer(workerIdNotif, shareCodeEntered);
       await createHITsWithQualification(workerIdNotif);
 
