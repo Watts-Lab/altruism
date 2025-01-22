@@ -1,3 +1,5 @@
+const s3Service = require('./s3Service');
+
 /*import { ACCESS_ID, SECRET_KEY } from "../../credentials.js";*/
 import("../../credentials.js").then(({ ACCESS_ID, SECRET_KEY }) => {
 
@@ -36,8 +38,23 @@ const stimuli = [
   { type: "text", content: "Sample text 1", prompt: "Rate this text from 1 to 5" },
   { type: "text", content: "Sample text 2", prompt: "Rate this text from 1 to 5" },
   { type: "text", content: "Sample text 3", prompt: "Rate this text from 1 to 5" },
-  { type: "image", content: "https://www.google.com/image1", prompt: "Rate this image from 1 to 5" },
+  { type: "image", content: "https://google.com/image1", prompt: "Rate this image from 1 to 5" },
 ];
+
+function getTemplate(stimulus) {
+  if (stimulus.type === "text") {
+    return {
+      question: `Please ${stimulus.prompt}`,
+      url: `https://example.com/rate-text?content=${encodeURIComponent(stimulus.content)}`
+    };
+  } else if (stimulus.type === "image") {
+    return {
+      question: `Please ${stimulus.prompt}`,
+      url: `https://example.com/rate-image?content=${encodeURIComponent(stimulus.content)}`
+    };
+  }
+  return null; // For unsupported stimulus types
+}
 
 function getRandomStimulus() {
   return stimuli[Math.floor(Math.random() * stimuli.length)];
@@ -78,6 +95,7 @@ const treatments = {
 // altruism cost (0-1)
 // reward per hit
 
+// Choose treatment (you can make this dynamic based on input)
 function selectTreatment(workerID) {
   const treatmentNames = Object.keys(treatments);
   return treatments[treatmentNames[Math.floor(Math.random() * treatmentNames.length)]];
@@ -103,7 +121,7 @@ const dynamoDBClient = new DynamoDBClient({
 });
 
 const taskLibrary = [
-  "Task1", "Task2", "Task3", 
+  "Task1", "Task2", "Task3", // Add actual task identifiers here
   "Task4", "Task5"
 ];
 
@@ -263,13 +281,17 @@ async function assignDemographicSurvey(workerId) {
 }
 
 async function assignRandomTasks(workerId) {
-  const shuffledTasks = taskLibrary.sort(() => 0.5 - Math.random());
-  const maxTasks = Math.floor(shuffledTasks.length * (1 - altruism_cost));
+  const shuffledStimuli = stimuli.sort(() => 0.5 - Math.random());
+  const maxTasks = Math.floor(shuffledStimuli.length * (1 - altruism_cost));
 
   for (let i = 0; i < maxTasks; i++) {
-    const task = shuffledTasks[i];
-    await createHIT(workerId, task);
-    console.log(`Assigned task ${task} to worker ${workerId}`);
+    const stimulus = shuffledStimuli[i];
+    const template = getTemplate(stimulus);
+
+    if (template) {
+      await createHIT(workerId, template.question, template.url);
+      console.log(`Assigned task: ${stimulus.type} (${stimulus.content}) to worker ${workerId}`);
+    }
   }
 }
       
@@ -304,6 +326,20 @@ async function createHIT() {
     console.log("\nA task was created at:", hitURL);
   } catch (error) {
     throw new Error("Error: " + error);
+  }
+}
+
+async function assignTasksToWorker(workerId) {
+  const demographicSurveyTask = "DemographicSurvey";
+
+  try {
+    // Assign demographic survey first
+    await createHIT(workerId, "Complete the demographic survey", "https://example.com/demographic-survey");
+
+    // Assign random tasks
+    await assignRandomTasks(workerId);
+  } catch (error) {
+    console.error("Error assigning tasks:", error);
   }
 }
     
